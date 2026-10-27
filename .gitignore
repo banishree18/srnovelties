@@ -1,0 +1,13 @@
+# Secrets
+   .env
+   .clasprc.json
+
+   # Personal notes and data exports
+   *.txt
+   *.csv
+   *.xlsx
+
+   # System files
+   node_modules/
+   .vscode/
+   Thumbs.db
