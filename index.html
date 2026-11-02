@@ -179,6 +179,23 @@ footer{background:#100520;padding:30px 6vw 20px;display:flex;flex-wrap:wrap;gap:
   .order-wrap{grid-template-columns:1fr;gap:22px;}
 }
 </style>
+<!-- ===== FESTIVAL BANNER: STYLE (added) ===== -->
+<style>
+.fest-banner{position:relative;overflow:hidden;margin:28px 6vw;border-radius:28px;padding:44px 6% 40px;display:none;align-items:center;gap:30px;flex-wrap:wrap;color:#fff;background:radial-gradient(circle at 15% 20%,#5B1E8C 0%,#2A0B4A 55%,#1A0633 100%);box-shadow:0 18px 40px rgba(42,11,74,.35);}
+.fest-banner.show{display:flex;}
+.fest-banner::before{content:"";position:absolute;inset:0;pointer-events:none;background-image:radial-gradient(2px 2px at 20% 30%,#FFE08A 50%,transparent 51%),radial-gradient(2px 2px at 70% 20%,#fff 50%,transparent 51%),radial-gradient(3px 3px at 85% 65%,#FFE08A 50%,transparent 51%),radial-gradient(2px 2px at 40% 80%,#fff 50%,transparent 51%),radial-gradient(2px 2px at 92% 35%,#FFB3D9 50%,transparent 51%),radial-gradient(2px 2px at 55% 55%,#FFE08A 50%,transparent 51%);animation:festTwinkle 3s ease-in-out infinite alternate;}
+@keyframes festTwinkle{from{opacity:.55}to{opacity:1}}
+.fest-icon{font-size:64px;line-height:1;position:relative;animation:festGlow 2s ease-in-out infinite alternate;}
+@keyframes festGlow{from{filter:drop-shadow(0 0 6px #FFB703)}to{filter:drop-shadow(0 0 22px #FFD166)}}
+.fest-text{flex:1;min-width:240px;position:relative;}
+.fest-tag{display:inline-block;background:#FFC83D;color:#4A2600;font-family:'Baloo 2',cursive;font-weight:800;font-size:.78rem;letter-spacing:2px;padding:5px 14px;border-radius:20px;}
+.fest-title{font-family:'Baloo 2',cursive;font-weight:800;font-size:clamp(1.9rem,4.5vw,3rem);line-height:1.08;margin:12px 0 6px;background:linear-gradient(90deg,#FFE08A,#FFB3D9);-webkit-background-clip:text;background-clip:text;color:transparent;}
+.fest-desc{font-weight:600;font-size:1.02rem;color:#EADCFB;margin-bottom:20px;}
+.fest-btn{display:inline-flex;align-items:center;gap:8px;border:none;cursor:pointer;background:linear-gradient(90deg,var(--pink),var(--purple));color:#fff;font-family:'Quicksand',sans-serif;font-weight:700;font-size:1.02rem;padding:14px 28px;border-radius:40px;box-shadow:0 8px 20px rgba(255,79,163,.45);transition:transform .15s;}
+.fest-btn:hover{transform:translateY(-3px);}
+.fest-note{margin-left:14px;color:#FFE08A;font-weight:700;font-size:.92rem;}
+@media(max-width:780px){.fest-banner{margin:20px 5vw;padding:32px 22px;text-align:center;justify-content:center;}.fest-icon{font-size:48px;}.fest-note{display:block;margin:12px 0 0;}}
+</style>
 </head>
 <body>
 
@@ -208,6 +225,18 @@ footer{background:#100520;padding:30px 6vw 20px;display:flex;flex-wrap:wrap;gap:
     <span class="ticker-item"><span class="ticker-dot">✦</span>Return Gifts, Ladies Fashion & Seasonal Specials</span>
     <span class="ticker-item"><span class="ticker-dot">✦</span>Live stock — what you see is what's in store!</span>
     <span class="ticker-item"><span class="ticker-dot">✦</span>Free Delivery in Hyderabad on orders ₹499+</span>
+  </div>
+</div>
+
+<!-- ===== FESTIVAL BANNER: HTML (added). Text is set in FESTIVAL settings near the end of this file ===== -->
+<div class="fest-banner" id="fest-banner">
+  <div class="fest-icon" id="fest-icon"></div>
+  <div class="fest-text">
+    <span class="fest-tag" id="fest-tag"></span>
+    <div class="fest-title" id="fest-title"></div>
+    <p class="fest-desc" id="fest-desc"></p>
+    <button class="fest-btn" id="fest-btn" onclick="openFestivalCategory()"></button>
+    <span class="fest-note" id="fest-note"></span>
   </div>
 </div>
 
@@ -684,6 +713,56 @@ function closeImageModal() {
   document.getElementById('image-modal').style.display = 'none';
 }
 </script>
+<!-- ===== FESTIVAL BANNER: SETTINGS + SCRIPT (added) ===== -->
+<script>
+// ------------------------------------------------------------
+// FESTIVAL SETTINGS: change only these lines for each festival.
+// show: false hides the banner. endDate (YYYY-MM-DD) hides it
+// automatically after that day; leave "" to keep it showing.
+// category must match the Category name in the Inventory sheet.
+// ------------------------------------------------------------
+const FESTIVAL = {
+  show: true,
+  endDate: "2026-11-12",
+  icon: "🪔✨",
+  tag: "DIWALI SPECIAL",
+  title: "Gifts that light up every home",
+  text: "Pop pops, colour fogs, wonder throws & festive gifts, handpicked for Diwali.",
+  button: "🎁 Shop Diwali Specials →",
+  note: "Limited stock!",
+  category: "Seasonal Items"
+};
+
+(function setupFestivalBanner() {
+  if (!FESTIVAL.show) return;
+  if (FESTIVAL.endDate && new Date() > new Date(FESTIVAL.endDate + "T23:59:59")) return;
+  document.getElementById('fest-icon').textContent = FESTIVAL.icon;
+  document.getElementById('fest-tag').textContent = FESTIVAL.tag;
+  document.getElementById('fest-title').textContent = FESTIVAL.title;
+  document.getElementById('fest-desc').textContent = FESTIVAL.text;
+  document.getElementById('fest-btn').textContent = FESTIVAL.button;
+  document.getElementById('fest-note').textContent = FESTIVAL.note;
+  document.getElementById('fest-banner').classList.add('show');
+})();
+
+function openFestivalCategory(tries) {
+  tries = tries || 0;
+  const panel = document.getElementById('tab-' + slugify(FESTIVAL.category));
+  const target = FESTIVAL.category.trim().toLowerCase();
+  const tab = [...document.querySelectorAll('.cat-tab')]
+    .find(t => t.textContent.trim().toLowerCase().endsWith(target));
+  if (panel && tab) {
+    showTab(slugify(FESTIVAL.category), tab);
+    document.getElementById('products').scrollIntoView({ behavior: 'smooth' });
+  } else if (tries < 20) {
+    // products may still be loading; try again shortly
+    setTimeout(() => openFestivalCategory(tries + 1), 300);
+  } else {
+    document.getElementById('products').scrollIntoView({ behavior: 'smooth' });
+  }
+}
+</script>
+
    <script>
      if ('serviceWorker' in navigator) {
        window.addEventListener('load', () => {
