@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "com.srnovelties.app",
+        "sha256_cert_fingerprints": ["1A:51:22:BE:32:85:8D:E1:73:64:96:30:CD:92:05:BE:B0:97:69:74:21:F9:8B:3E:44:CE:BA:08:E2:A1:AF:FD"]
+      }
+    }]
