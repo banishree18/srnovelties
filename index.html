@@ -103,6 +103,16 @@ section{padding:64px 6vw;}
 .prod-price-row{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
 .prod-price{font-family:'Baloo 2',cursive;font-size:1.02rem;font-weight:800;color:var(--pink);}
 .prod-stock{font-size:0.72rem;color:#888;font-weight:600;}
+.prod-old-price{font-size:0.8rem;color:#999;text-decoration:line-through;font-weight:600;}
+.prod-ribbon.offer{background:var(--pink);left:auto;right:0;border-radius:10px 0 0 10px;}
+.prod-off{font-size:0.68rem;font-weight:800;color:#1a9e4b;}
+/* SEARCH */
+.search-wrap{max-width:520px;margin:0 auto 22px;position:relative;}
+.search-wrap input{width:100%;box-sizing:border-box;padding:13px 44px 13px 46px;border:2px solid #ffd6ee;border-radius:30px;font-family:'Quicksand',sans-serif;font-size:0.95rem;font-weight:600;color:var(--dark);background:#fff;outline:none;transition:border-color .18s,box-shadow .18s;}
+.search-wrap input:focus{border-color:var(--pink);box-shadow:0 0 0 4px rgba(255,79,163,0.12);}
+.search-wrap .search-icon{position:absolute;left:17px;top:50%;transform:translateY(-50%);font-size:1.05rem;pointer-events:none;}
+.search-wrap .search-clear{position:absolute;right:10px;top:50%;transform:translateY(-50%);border:none;background:#f3e8ff;color:#7a5aa6;width:28px;height:28px;border-radius:50%;cursor:pointer;font-weight:800;display:none;}
+.search-count{text-align:center;font-size:0.82rem;font-weight:700;color:#9a80b8;margin:-10px 0 16px;min-height:1em;}
 .prod-order-btn{display:block;width:100%;background:#25D366;color:#fff;border:none;border-radius:10px;padding:8px;font-family:'Quicksand',sans-serif;font-weight:700;font-size:0.8rem;text-align:center;cursor:pointer;transition:background .18s;}
 .prod-order-btn:hover{background:#1daf55;}
 .prod-order-btn:disabled{background:#ccc;cursor:not-allowed;}
@@ -272,7 +282,14 @@ footer{background:#100520;padding:30px 6vw 20px;display:flex;flex-wrap:wrap;gap:
     <h2>Our Products</h2>
     <p>Live stock, straight from our inventory — updated automatically.</p>
   </div>
+  <div class="search-wrap">
+    <span class="search-icon">🔍</span>
+    <input type="text" id="product-search" enterkeyhint="search" placeholder="Search products… e.g. diya, candle, school bag" autocomplete="off" oninput="onSearch()">
+    <button type="button" class="search-clear" id="search-clear" onclick="clearSearch()" aria-label="Clear search">✕</button>
+  </div>
+  <div class="search-count" id="search-count"></div>
   <div class="cat-tabs" id="cat-tabs"></div>
+  <div id="search-results" style="display:none;"></div>
   <div id="cat-panels">
     <div class="status-msg">Loading products…</div>
   </div>
@@ -461,6 +478,7 @@ function loadProducts() {
       allProducts = parseInventoryCSV(csvText);
       renderCategoriesAndProducts();
       populateOrderCategoryDropdown();
+      onSearch(); // keep any search the customer typed
     })
     .catch(err => {
       console.error(err);
@@ -469,8 +487,9 @@ function loadProducts() {
 }
 
 function parseInventoryCSV(csvText) {
-  const lines = csvText.trim().split('\n');
-  const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/"/g, ''));
+  const rows = parseCSV(csvText);
+  if (!rows.length) return [];
+  const headers = rows[0].map(h => h.trim().toLowerCase());
 
   const idCol = headers.indexOf('product_id');
   const nameCol = headers.indexOf('product_name');
@@ -480,19 +499,34 @@ function parseInventoryCSV(csvText) {
   const subcatCol = headers.indexOf('subcategory');
   const imageCol = headers.indexOf('image_url');
   const descCol = headers.indexOf('description');
+  const offerCol = headers.indexOf('offer_price'); // first Offer_Price column — same one the Apps Script uses
+  const mrpCol = headers.indexOf('mrp');
+
+  const num = (row, col) => col >= 0 ? (Number((row[col] || '').toString().replace(/[₹,\s]/g, '')) || 0) : 0;
 
   const products = [];
-  for (let i = 1; i < lines.length; i++) {
-    if (!lines[i].trim()) continue;
-    const row = parseCSVRow(lines[i]);
+  for (let i = 1; i < rows.length; i++) {
+    const row = rows[i];
     const name = (row[nameCol] || '').trim();
     if (!name) continue;
+
+    const unitPrice = num(row, priceCol);
+    const offer = num(row, offerCol);
+    const mrp = num(row, mrpCol);
+    // Customer pays the Offer_Price when it's filled, otherwise the Unit_price (same rule as the Apps Script)
+    const price = offer > 0 ? offer : unitPrice;
+    const onOffer = offer > 0 && offer < unitPrice;
+    // Price shown crossed out: the higher of Unit_price (during an offer) and MRP, if it's above what they pay
+    const oldPrice = Math.max(onOffer ? unitPrice : 0, mrp);
+
     products.push({
       id: idCol >= 0 ? row[idCol] : '',
       name: name,
       category: (row[catCol] || 'Other').trim() || 'Other',
-      price: Number(row[priceCol]) || 0,
-      stock: Number(row[stockCol]) || 0,
+      price: price,
+      oldPrice: oldPrice > price ? oldPrice : 0,
+      onOffer: onOffer,
+      stock: num(row, stockCol),
       subcategory: subcatCol >= 0 ? (row[subcatCol] || '').trim() : '',
       image: imageCol >= 0 ? (row[imageCol] || '').trim() : '',
       description: descCol >= 0 ? (row[descCol] || '').trim() : ''
@@ -501,19 +535,38 @@ function parseInventoryCSV(csvText) {
   return products;
 }
 
-function parseCSVRow(row) {
-  const result = [];
-  let current = '';
-  let inQuotes = false;
-  for (let i = 0; i < row.length; i++) {
-    const char = row[i];
-    if (char === '"') { inQuotes = !inQuotes; }
-    else if (char === ',' && !inQuotes) { result.push(current); current = ''; }
-    else { current += char; }
+// Full CSV reader: handles commas, quotes ("") and line breaks INSIDE a cell
+// (e.g. multi-line Description cells), which a simple split-by-line would break.
+function parseCSV(text) {
+  const rows = [];
+  let row = [], cur = '', inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQuotes) {
+      if (c === '"') {
+        if (text[i + 1] === '"') { cur += '"'; i++; }
+        else inQuotes = false;
+      } else cur += c;
+    } else if (c === '"') inQuotes = true;
+    else if (c === ',') { row.push(cur); cur = ''; }
+    else if (c === '\n' || c === '\r') {
+      if (c === '\r' && text[i + 1] === '\n') i++;
+      row.push(cur); cur = '';
+      if (row.some(v => v.trim() !== '')) rows.push(row);
+      row = [];
+    } else cur += c;
   }
-  result.push(current);
-  return result;
+  row.push(cur);
+  if (row.some(v => v.trim() !== '')) rows.push(row);
+  return rows;
 }
+
+function priceHTML(p) {
+  if (!p.oldPrice) return `<span class="prod-price">₹${p.price}</span>`;
+  const off = Math.round((1 - p.price / p.oldPrice) * 100);
+  return `<span class="prod-price">₹${p.price}</span><span class="prod-old-price">₹${p.oldPrice}</span>${off > 0 ? `<span class="prod-off">${off}% off</span>` : ''}`;
+}
+
 function showLoadError() {
   document.getElementById('cat-panels').innerHTML =
     '<div class="status-msg err">⚠️ Couldn\'t load live products right now.<br>Please refresh, or <a href="https://wa.me/919000158301" target="_blank">order via WhatsApp</a> instead.</div>';
@@ -556,37 +609,93 @@ function renderCategoriesAndProducts() {
     const grid = document.createElement('div');
     grid.className = 'prod-grid';
 
-    grouped[cat].forEach(p => {
-      const card = document.createElement('div');
-      card.className = 'prod-card fade-in';
-
-      const outOfStock = p.stock <= 0;
-      const lowStock = !outOfStock && p.stock <= 5;
-      const productIcon = iconForProduct(p.name, cat);
-
-      card.innerHTML = `
-<div class="prod-thumb">${p.image ? `<img src="${p.image}" alt="${p.name}" style="width:100%;height:100%;object-fit:contain;cursor:pointer;" onclick="openImageModal('${p.image}', '${p.name.replace(/'/g, "\\'")}')" onerror="this.parentElement.innerHTML='${productIcon}';">` : productIcon}  ${outOfStock ? '<span class="prod-ribbon out">Out of Stock</span>' : (lowStock ? '<span class="prod-ribbon low">Low Stock</span>' : '')}
-</div>        <div class="prod-info">
-          <div class="prod-name"></div>
-          <div class="prod-price-row">
-            <span class="prod-price">₹${p.price}</span>
-            <span class="prod-stock">${outOfStock ? 'Unavailable' : p.stock + ' left'}</span>
-          </div>
-          <button class="prod-order-btn" ${outOfStock ? 'disabled' : ''}>${outOfStock ? 'Out of Stock' : '🛒 Order'}</button>
-        </div>
-      `;
-      card.querySelector('.prod-name').textContent = p.name; // safe text insertion, avoids HTML-escaping issues
-      if (!outOfStock) {
-        card.querySelector('.prod-order-btn').addEventListener('click', () => selectProduct(cat, p.name));
-      }
-      grid.appendChild(card);
-    });
+    grouped[cat].forEach(p => grid.appendChild(buildProductCard(p)));
 
     panel.appendChild(grid);
     panelsEl.appendChild(panel);
   });
 
   observeFadeIns();
+}
+
+// ---------- One product card (used by category tabs AND search results) ----------
+function buildProductCard(p) {
+  const cat = p.category;
+  const card = document.createElement('div');
+  card.className = 'prod-card fade-in';
+
+  const outOfStock = p.stock <= 0;
+  const lowStock = !outOfStock && p.stock <= 5;
+  const productIcon = iconForProduct(p.name, cat);
+
+  card.innerHTML = `
+<div class="prod-thumb">${p.image ? `<img src="${p.image}" alt="${p.name.replace(/"/g, '&quot;')}" style="width:100%;height:100%;object-fit:contain;cursor:pointer;" onclick="openImageModal('${p.image}', '${p.name.replace(/'/g, "\\'").replace(/"/g, '&quot;')}')" onerror="this.parentElement.innerHTML='${productIcon}';">` : productIcon}  ${outOfStock ? '<span class="prod-ribbon out">Out of Stock</span>' : (lowStock ? '<span class="prod-ribbon low">Low Stock</span>' : '')}${p.onOffer && !outOfStock ? '<span class="prod-ribbon offer">🎉 Offer</span>' : ''}
+</div>        <div class="prod-info">
+          <div class="prod-name"></div>
+          <div class="prod-price-row">
+            ${priceHTML(p)}
+          </div>
+          <div class="prod-stock" style="margin:-4px 0 8px;">${outOfStock ? 'Unavailable' : p.stock + ' left'}</div>
+          <button class="prod-order-btn" ${outOfStock ? 'disabled' : ''}>${outOfStock ? 'Out of Stock' : '🛒 Order'}</button>
+        </div>
+      `;
+  card.querySelector('.prod-name').textContent = p.name; // safe text insertion, avoids HTML-escaping issues
+  if (!outOfStock) {
+    card.querySelector('.prod-order-btn').addEventListener('click', () => selectProduct(cat, p.name));
+  }
+  return card;
+}
+
+// ---------- Search ----------
+// Matches every word typed, in any order, against name + category + description.
+function onSearch() {
+  const input = document.getElementById('product-search');
+  const q = input.value.trim().toLowerCase();
+  const results = document.getElementById('search-results');
+  const tabs = document.getElementById('cat-tabs');
+  const panels = document.getElementById('cat-panels');
+  const count = document.getElementById('search-count');
+  document.getElementById('search-clear').style.display = q ? 'block' : 'none';
+
+  if (!q) {
+    results.style.display = 'none';
+    results.innerHTML = '';
+    tabs.style.display = '';
+    panels.style.display = '';
+    count.textContent = '';
+    return;
+  }
+
+  const words = q.split(/\s+/);
+  const matches = allProducts.filter(p => {
+    const hay = (p.name + ' ' + p.category + ' ' + (p.subcategory || '') + ' ' + (p.description || '')).toLowerCase();
+    return words.every(w => hay.includes(w));
+  });
+
+  tabs.style.display = 'none';
+  panels.style.display = 'none';
+  results.style.display = '';
+  results.innerHTML = '';
+
+  if (!matches.length) {
+    count.textContent = '';
+    results.innerHTML = '<div class="status-msg">No products found for "' + input.value.trim().replace(/[<>&"]/g, '') +
+      '".<br>Try another word, or <a href="https://wa.me/919000158301" target="_blank">ask us on WhatsApp</a>.</div>';
+    return;
+  }
+
+  count.textContent = matches.length + (matches.length === 1 ? ' product found' : ' products found');
+  const grid = document.createElement('div');
+  grid.className = 'prod-grid';
+  matches.forEach(p => grid.appendChild(buildProductCard(p)));
+  results.appendChild(grid);
+  observeFadeIns();
+}
+
+function clearSearch() {
+  document.getElementById('product-search').value = '';
+  onSearch();
+  document.getElementById('product-search').focus();
 }
 
 function showTab(slug, btnEl) {
@@ -611,7 +720,7 @@ function updateProducts() {
   if (!cat) { sel.innerHTML = '<option value="">-- Select Category First --</option>'; return; }
   const items = allProducts.filter(p => p.category === cat);
   sel.innerHTML = '<option value="">-- Select Product --</option>' +
-    items.map(p => `<option value="${p.name.replace(/"/g,'&quot;')}" ${p.stock<=0?'disabled':''}>${p.name} — ₹${p.price}${p.stock<=0?' (Out of stock)':''}</option>`).join('');
+    items.map(p => `<option value="${p.name.replace(/"/g,'&quot;')}" ${p.stock<=0?'disabled':''}>${p.name} — ₹${p.price}${p.oldPrice ? ' (was ₹' + p.oldPrice + ')' : ''}${p.stock<=0?' (Out of stock)':''}</option>`).join('');
 }
 
 // Pre-fill order form when a product card's Order button is clicked
@@ -669,7 +778,7 @@ function sendOrder() {
       window.open("https://wa.me/919000158301?text=" + encodeURIComponent(
         "🛍️ New Order - SR Novelties\nOrder ID: " + result.orderId +
         "\nName: " + name + "\nPhone: " + phone + "\nProduct: " + product + " x" + qty +
-        "\nTotal: ₹" + totalAmount
+        "\nTotal: ₹" + (result.total != null ? result.total : totalAmount)
       ), "_blank");
       resetForm();
       loadProducts(); // refresh stock numbers shown on page
