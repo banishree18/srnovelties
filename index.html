@@ -112,6 +112,12 @@ section{padding:64px 6vw;}
 .search-wrap input:focus{border-color:var(--pink);box-shadow:0 0 0 4px rgba(255,79,163,0.12);}
 .search-wrap .search-icon{position:absolute;left:17px;top:50%;transform:translateY(-50%);font-size:1.05rem;pointer-events:none;}
 .search-wrap .search-clear{position:absolute;right:10px;top:50%;transform:translateY(-50%);border:none;background:#f3e8ff;color:#7a5aa6;width:28px;height:28px;border-radius:50%;cursor:pointer;font-weight:800;display:none;}
+.hero-search{display:flex;align-items:center;background:#fff;border:2px solid var(--pink);border-radius:34px;padding:5px 5px 5px 18px;margin:0 0 14px;max-width:520px;box-shadow:0 6px 24px rgba(255,79,163,0.16);}
+.hero-search input{flex:1;min-width:0;border:none;outline:none;background:transparent;font-family:'Quicksand',sans-serif;font-size:1rem;font-weight:600;color:var(--dark);padding:9px 8px;}
+.hero-search button{border:none;background:linear-gradient(135deg,var(--pink),var(--purple));color:#fff;font-family:'Quicksand',sans-serif;font-weight:800;font-size:0.92rem;padding:11px 22px;border-radius:30px;cursor:pointer;white-space:nowrap;}
+.hero-chips{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 26px;font-size:0.8rem;font-weight:700;color:#8a6fa8;align-items:center;}
+.hero-chips button{border:1.5px solid #ffd6ee;background:#fff;color:var(--pink);border-radius:20px;padding:5px 13px;font-family:'Quicksand',sans-serif;font-weight:700;font-size:0.8rem;cursor:pointer;}
+.hero-chips button:hover{border-color:var(--pink);}
 .search-count{text-align:center;font-size:0.82rem;font-weight:700;color:#9a80b8;margin:-10px 0 16px;min-height:1em;}
 .prod-order-btn{display:block;width:100%;background:#25D366;color:#fff;border:none;border-radius:10px;padding:8px;font-family:'Quicksand',sans-serif;font-weight:700;font-size:0.8rem;text-align:center;cursor:pointer;transition:background .18s;}
 .prod-order-btn:hover{background:#1daf55;}
@@ -183,6 +189,8 @@ footer{background:#100520;padding:30px 6vw 20px;display:flex;flex-wrap:wrap;gap:
   .ham{display:flex;}
   .hero{flex-direction:column;padding:48px 5vw 36px;text-align:center;}
   .hero-btns{justify-content:center;}
+  .hero-search{margin-left:auto;margin-right:auto;}
+  .hero-chips{justify-content:center;}
   .hero-right{margin-top:30px;}
   section{padding:50px 5vw;}
   .contact-btns{flex-direction:column;align-items:center;}
@@ -258,6 +266,17 @@ footer{background:#100520;padding:30px 6vw 20px;display:flex;flex-wrap:wrap;gap:
     <div class="hero-eyebrow">📍 Based in Hyderabad &nbsp;·&nbsp; Fast Local Delivery</div>
     <h1><span class="h-pink">SR Novelties</span> —<br><span class="h-purple">Kids Gifts</span> &<br>Ladies Fashion</h1>
     <p class="hero-desc">Toys, return gifts, jewellery kits, science sets, ladies suits & festive specials — all at amazing prices, delivered across Hyderabad!</p>
+    <form class="hero-search" role="search" onsubmit="heroSearch(event)">
+      <span aria-hidden="true">🔍</span>
+      <input type="text" id="hero-search-input" placeholder="Search products… e.g. diya" autocomplete="off" enterkeyhint="search" aria-label="Search products">
+      <button type="submit">Search</button>
+    </form>
+    <div class="hero-chips">Popular:
+      <button type="button" onclick="quickSearch('diya')">🪔 Diya</button>
+      <button type="button" onclick="quickSearch('candles')">🕯️ Candles</button>
+      <button type="button" onclick="quickSearch('school bag')">🎒 School bag</button>
+      <button type="button" onclick="quickSearch('pouch')">✏️ Pouch</button>
+    </div>
     <div class="hero-btns">
       <a href="https://wa.me/919000158301?text=Hi SR Novelties! I'd like to shop" class="btn-main" target="_blank">💬 Order on WhatsApp</a>
       <a href="#products" class="btn-out">Browse Products</a>
@@ -690,6 +709,19 @@ function onSearch() {
   matches.forEach(p => grid.appendChild(buildProductCard(p)));
   results.appendChild(grid);
   observeFadeIns();
+}
+
+// Search box at the top of the page: sends the words to the main product search and scrolls there
+function heroSearch(e) {
+  if (e) e.preventDefault();
+  quickSearch(document.getElementById('hero-search-input').value);
+}
+function quickSearch(text) {
+  const q = (text || '').trim();
+  document.getElementById('hero-search-input').value = q;
+  document.getElementById('product-search').value = q;
+  onSearch();
+  document.getElementById('products').scrollIntoView({ behavior: 'smooth' });
 }
 
 function clearSearch() {
